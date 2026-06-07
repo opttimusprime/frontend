@@ -15,6 +15,7 @@ namespace: frontend
 ingress:
   enabled: true
   className: alb
+  host: dev.optimusprime.uno
 
 resources:
   requests:
