@@ -1,0 +1,6 @@
+replicaCount: 2
+
+image:
+  repository: 942548380129.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue
+  tag: "latest"
+  pullPolicy: Always

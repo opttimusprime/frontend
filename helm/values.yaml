@@ -1,0 +1,30 @@
+replicaCount: 2
+
+image:
+  repository: 942548380129.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue
+  tag: "1.0.0"
+  digest: ""
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8080
+
+containerPort: 8080
+
+namespace: catalogue
+
+env:
+  MONGO: "true"
+  MONGO_URL: "mongodb://root:RootPassword123@mongodb-0.mongodb-headless.mongodb.svc.cluster.local:27017,mongodb-1.mongodb-headless.mongodb.svc.cluster.local:27017/catalogue?authSource=admin&replicaSet=rs0"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+ingress:
+  enabled: true
