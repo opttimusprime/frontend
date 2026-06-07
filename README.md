@@ -10,3 +10,4 @@ Frontend service for Roboshop.
 - JavaScript
 
 #test 01-first frontend ci test
+#test 02-first frontend ci test
