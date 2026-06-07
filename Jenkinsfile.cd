@@ -11,10 +11,10 @@ pipeline {
     environment {
         AWS_REGION   = 'us-east-1'
         ECR_REGISTRY = '942548380129.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPO     = 'roboshop/catalogue'
+        ECR_REPO     = 'roboshop/frontend'
 
-        K8S_NAMESPACE = 'catalogue'
-        HELM_RELEASE  = 'catalogue'
+        K8S_NAMESPACE = 'frontend'
+        HELM_RELEASE  = 'frontend'
         HELM_CHART    = 'helm'
 
         IMAGE_DIGEST  = ''
@@ -36,7 +36,7 @@ pipeline {
             steps {
                 git branch: 'develop',
                     credentialsId: 'jenkins-github-ssh',
-                    url: 'git@github.com:opttimusprime/catalogue.git'
+                    url: 'git@github.com:opttimusprime/frontend.git'
             }
         }
 
@@ -44,16 +44,16 @@ pipeline {
             steps {
                 script {
                     IMAGE_DIGEST = sh(
-                script: """
-                    aws ecr describe-images \
-                      --repository-name ${ECR_REPO} \
-                      --image-ids imageTag=${params.IMAGE_TAG} \
-                      --region ${AWS_REGION} \
-                      --query 'imageDetails[0].imageDigest' \
-                      --output text
-                """,
-                returnStdout: true
-            ).trim()
+                        script: """
+                            aws ecr describe-images \
+                              --repository-name ${ECR_REPO} \
+                              --image-ids imageTag=${params.IMAGE_TAG} \
+                              --region ${AWS_REGION} \
+                              --query 'imageDetails[0].imageDigest' \
+                              --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
 
                     echo "Image Digest: ${IMAGE_DIGEST}"
 
@@ -68,8 +68,8 @@ pipeline {
             steps {
                 sh """
                     aws eks update-kubeconfig \
-                    --region ${AWS_REGION} \
-                    --name roboshop-${ENVIRONMENT}-eks
+                      --region ${AWS_REGION} \
+                      --name roboshop-${ENVIRONMENT}-eks
                 """
             }
         }
@@ -78,12 +78,12 @@ pipeline {
             steps {
                 sh """
                     helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
-                    --namespace ${K8S_NAMESPACE} \
-                    --create-namespace \
-                    -f helm/values.yaml \
-                    -f helm/values-${ENVIRONMENT}.yaml \
-                    --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \
-                    --set image.digest=${IMAGE_DIGEST}
+                      --namespace ${K8S_NAMESPACE} \
+                      --create-namespace \
+                      -f helm/values.yaml \
+                      -f helm/values-${ENVIRONMENT}.yaml \
+                      --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \
+                      --set image.digest=${IMAGE_DIGEST}
                 """
             }
         }
@@ -94,6 +94,7 @@ pipeline {
                     kubectl rollout status deployment/${HELM_RELEASE} -n ${K8S_NAMESPACE}
                     kubectl get pods -n ${K8S_NAMESPACE}
                     kubectl get svc -n ${K8S_NAMESPACE}
+                    kubectl get ingress -n ${K8S_NAMESPACE}
                     kubectl get deployment ${HELM_RELEASE} -n ${K8S_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}'
                     echo ""
                 """
@@ -103,11 +104,11 @@ pipeline {
 
     post {
         success {
-            echo "Catalogue deployment completed successfully using image digest: ${IMAGE_DIGEST}"
+            echo "Frontend deployment completed successfully using image digest: ${IMAGE_DIGEST}"
         }
 
         failure {
-            echo 'Catalogue deployment failed'
+            echo 'Frontend deployment failed'
         }
     }
 }
