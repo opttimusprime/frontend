@@ -1,5 +1,5 @@
 bucket         = "roboshop-tf-state"
-key            = "preprod/catalogue/terraform.tfstate"
+key            = "preprod/frontend/terraform.tfstate"
 dynamodb_table = "roboshop-tf-lock"
 region         = "us-east-1"
 encrypt        = true

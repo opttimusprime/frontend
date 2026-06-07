@@ -1,1 +1,10 @@
-# web 
+# Roboshop Frontend
+
+Frontend service for Roboshop.
+
+## Components
+
+- Nginx
+- HTML
+- CSS
+- JavaScript

@@ -1,25 +1,26 @@
-resource "kubernetes_namespace" "catalogue" {
+resource "kubernetes_namespace" "frontend" {
   metadata {
     name = var.namespace
 
     labels = {
-      app         = "catalogue"
+      name        = var.namespace
       environment = var.environment
+      component   = "frontend"
     }
   }
 }
 
-resource "helm_release" "catalogue" {
-  name      = "catalogue"
-  chart     = "../helm"
-  namespace = kubernetes_namespace.catalogue.metadata[0].name
+resource "helm_release" "frontend" {
+  name       = var.helm_release_name
+  namespace  = kubernetes_namespace.frontend.metadata[0].name
+  chart      = var.helm_chart_path
 
   values = [
-    file("../helm/values.yaml"),
+    file("${var.helm_chart_path}/values.yaml"),
     file(var.helm_values_file)
   ]
 
   depends_on = [
-    kubernetes_namespace.catalogue
+    kubernetes_namespace.frontend
   ]
 }

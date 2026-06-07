@@ -1,15 +1,6 @@
-variable "aws_region" {
-  type = string
-}
-
-variable "environment" {
-  type = string
-}
-
-variable "namespace" {
-  type = string
-}
-
-variable "helm_values_file" {
-  type = string
-}
+variable "aws_region" {}
+variable "environment" {}
+variable "namespace" {}
+variable "helm_release_name" {}
+variable "helm_chart_path" {}
+variable "helm_values_file" {}

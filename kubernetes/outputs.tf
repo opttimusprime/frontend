@@ -1,7 +1,7 @@
-output "catalogue_helm_release_name" {
-  value = helm_release.catalogue.name
+output "frontend_namespace" {
+  value = kubernetes_namespace.frontend.metadata[0].name
 }
 
-output "catalogue_namespace" {
-  value = helm_release.catalogue.namespace
+output "frontend_release_name" {
+  value = helm_release.frontend.name
 }

@@ -1,32 +1,8 @@
-FROM node:20-alpine
+FROM nginx:1.27-alpine
 
-# Set working directory
-WORKDIR /app
+COPY app/ /usr/share/nginx/html/
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy dependency file first (for caching)
-COPY package.json ./
+EXPOSE 80
 
-# Install dependencies
-RUN npm install
-
-# Copy remaining application code
-COPY . .
-
-# Create a non-root user
-RUN addgroup -S roboshop && adduser -S roboshop -G roboshop
-
-# Give ownership
-RUN chown -R roboshop:roboshop /app
-
-# Set environment variables
-ENV MONGO=true
-ENV MONGO_URL=mongodb://mongodb.mongodb.svc.cluster.local:27017/catalogue
-
-# Switch user
-USER roboshop
-
-# Expose port
-EXPOSE 8080
-
-# Start app
-CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]

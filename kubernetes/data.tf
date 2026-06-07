@@ -4,6 +4,7 @@ data "terraform_remote_state" "eks" {
   config = {
     bucket = "roboshop-tf-state"
     key    = "dev/eks/terraform.tfstate"
-    region = "us-east-1"
+    region = var.aws_region
   }
 }
+
