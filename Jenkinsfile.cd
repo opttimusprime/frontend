@@ -15,7 +15,7 @@ pipeline {
 
         K8S_NAMESPACE = 'frontend'
         HELM_RELEASE  = 'frontend'
-        HELM_CHART    = 'helm'
+        HELM_CHART    = './helm'
 
         IMAGE_DIGEST  = ''
     }

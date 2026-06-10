@@ -1,6 +1,0 @@
-aws_region        = "us-east-1"
-environment       = "qa"
-namespace         = "frontend"
-helm_release_name = "frontend"
-helm_chart_path   = "../helm"
-helm_values_file  = "../helm/values-qa.yaml"

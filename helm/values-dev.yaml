@@ -1,11 +1,13 @@
+namespace: frontend
+
 replicaCount: 2
 
 image:
   repository: 942548380129.dkr.ecr.us-east-1.amazonaws.com/roboshop/frontend
   tag: "latest"
+  digest: ""
   pullPolicy: Always
 
 ingress:
   enabled: true
-  className: alb
   host: dev.optimusprime.uno
