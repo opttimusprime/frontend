@@ -1,8 +1,10 @@
+namespace: frontend
+
 replicaCount: 2
 
 image:
   repository: 942548380129.dkr.ecr.us-east-1.amazonaws.com/roboshop/frontend
-  tag: latest
+  tag: "1.0.0"
   digest: ""
   pullPolicy: Always
 
@@ -10,17 +12,21 @@ service:
   type: ClusterIP
   port: 80
 
-namespace: frontend
+containerPort: 80
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
 
 ingress:
   enabled: true
   className: alb
+  scheme: internet-facing
+  targetType: ip
   host: dev.optimusprime.uno
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 250m
-    memory: 256Mi
+  path: /
+  pathType: Prefix

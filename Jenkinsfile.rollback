@@ -4,8 +4,17 @@ pipeline {
     }
 
     parameters {
-        string(name: 'IMAGE_TAG', defaultValue: '', description: 'Docker image tag to deploy')
-        choice(name: 'ENVIRONMENT', choices: ['dev', 'qa', 'preprod', 'prod'], description: 'Target environment')
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'Previous working image tag to rollback to'
+        )
+
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'qa', 'preprod', 'prod'],
+            description: 'Target environment'
+        )
     }
 
     environment {
@@ -16,19 +25,17 @@ pipeline {
         K8S_NAMESPACE = 'frontend'
         HELM_RELEASE  = 'frontend'
         HELM_CHART    = './helm'
-
-        IMAGE_DIGEST  = ''
     }
 
     stages {
         stage('Validate Inputs') {
             steps {
-                sh """
-                    if [ -z "${params.IMAGE_TAG}" ]; then
+                sh '''
+                    if [ -z "${IMAGE_TAG}" ]; then
                       echo "ERROR: IMAGE_TAG is required"
                       exit 1
                     fi
-                """
+                '''
             }
         }
 
@@ -55,10 +62,11 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "Image Digest: ${env.IMAGE_DIGEST}"
+                    echo "Rollback Image Tag    : ${params.IMAGE_TAG}"
+                    echo "Rollback Image Digest : ${env.IMAGE_DIGEST}"
 
                     if (env.IMAGE_DIGEST == '' || env.IMAGE_DIGEST == 'None') {
-                        error "ERROR: Image digest not found for tag: ${params.IMAGE_TAG}"
+                        error "ERROR: Image digest not found for tag ${params.IMAGE_TAG}"
                     }
                 }
             }
@@ -74,11 +82,12 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Rollback Frontend') {
             steps {
                 sh """
                     helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
                       --namespace ${K8S_NAMESPACE} \
+                      --create-namespace \
                       -f helm/values.yaml \
                       -f helm/values-${params.ENVIRONMENT}.yaml \
                       --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \
@@ -87,14 +96,33 @@ pipeline {
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Verify Rollback') {
             steps {
                 sh """
-                    kubectl rollout status deployment/${HELM_RELEASE} -n ${K8S_NAMESPACE}
+                    kubectl rollout status deployment/frontend -n ${K8S_NAMESPACE}
+
+                    echo "-----------------------------"
+                    echo "Running Pods"
+                    echo "-----------------------------"
                     kubectl get pods -n ${K8S_NAMESPACE}
+
+                    echo "-----------------------------"
+                    echo "Service"
+                    echo "-----------------------------"
                     kubectl get svc -n ${K8S_NAMESPACE}
+
+                    echo "-----------------------------"
+                    echo "Ingress"
+                    echo "-----------------------------"
                     kubectl get ingress -n ${K8S_NAMESPACE}
-                    kubectl get deployment ${HELM_RELEASE} -n ${K8S_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+                    echo "-----------------------------"
+                    echo "Running Image"
+                    echo "-----------------------------"
+                    kubectl get deployment frontend \
+                      -n ${K8S_NAMESPACE} \
+                      -o jsonpath='{.spec.template.spec.containers[0].image}'
+
                     echo ""
                 """
             }
@@ -103,11 +131,14 @@ pipeline {
 
     post {
         success {
-            echo "Frontend deployment completed successfully using image digest: ${env.IMAGE_DIGEST}"
+            echo "Frontend rollback completed successfully"
+            echo "Environment : ${params.ENVIRONMENT}"
+            echo "Image Tag   : ${params.IMAGE_TAG}"
+            echo "Digest      : ${env.IMAGE_DIGEST}"
         }
 
         failure {
-            echo 'Frontend deployment failed'
+            echo "Frontend rollback failed"
         }
     }
 }
