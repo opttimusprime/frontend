@@ -30,3 +30,4 @@ ingress:
   host: dev.optimusprime.uno
   path: /
   pathType: Prefix
+  certificateArn: arn:aws:acm:us-east-1:942548380129:certificate/04035cfa-147e-46be-aca6-93361d8a3c0b
