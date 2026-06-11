@@ -113,7 +113,16 @@ pipeline {
 
     post {
         success {
-            echo "Frontend CI completed successfully. Image tag: ${IMAGE_TAG}"
+            echo 'Frontend CI completed successfully'
+            echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
+            echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
+
+            build job: 'frontend-cd',
+        parameters: [
+            string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
+            string(name: 'ENVIRONMENT', value: 'dev')
+        ],
+        wait: false
         }
 
         failure {
