@@ -79,7 +79,6 @@ pipeline {
                 sh """
                     helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
                       --namespace ${K8S_NAMESPACE} \
-                      --create-namespace \
                       -f helm/values.yaml \
                       -f helm/values-${params.ENVIRONMENT}.yaml \
                       --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \
