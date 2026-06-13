@@ -35,35 +35,32 @@ pipeline {
         }
 
         stage('SonarQube Scan') {
-            // steps {
-            //     withSonarQubeEnv('sonarqube') {
-            //         sh """
-            //             sonar-scanner \
-            //             -Dsonar.projectKey=frontend \
-            //             -Dsonar.projectName=frontend \
-            //             -Dsonar.sources=app
-            //         """
-            //     }
-            // }
-
             steps {
-                sh '''
-                    echo "SonarQube Scan has been completed successfully"
-                '''
+                script {
+                    def scannerHome = tool 'SonarScanner'
+
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                    ${scannerHome}/bin/sonar-scanner \
+                    -Dsonar.projectKey=frontend \
+                    -Dsonar.projectName=frontend \
+                    -Dsonar.sources=. \
+                    -Dsonar.exclusions=node_modules/**,coverage/**
+                """
+                    }
+                }
+
+                echo 'SonarQube Scan completed successfully'
             }
         }
 
         stage('Quality Gate') {
-            // steps {
-            //     timeout(time: 5, unit: 'MINUTES') {
-            //         waitForQualityGate abortPipeline: true
-            //     }
-            // }
-
             steps {
-                sh '''
-                    echo "Quality Gate has been passed successfully"
-                '''
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+
+                echo 'Quality Gate passed successfully'
             }
         }
 
