@@ -41,12 +41,12 @@ pipeline {
 
                     withSonarQubeEnv('SonarQube') {
                         sh """
-                    ${scannerHome}/bin/sonar-scanner \
-                    -Dsonar.projectKey=frontend \
-                    -Dsonar.projectName=frontend \
-                    -Dsonar.sources=. \
-                    -Dsonar.exclusions=node_modules/**,coverage/**
-                """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=frontend \
+                            -Dsonar.projectName=frontend \
+                            -Dsonar.sources=. \
+                            -Dsonar.exclusions=node_modules/**,coverage/**
+                        """
                     }
                 }
 
@@ -75,29 +75,26 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 sh '''
-            mkdir -p trivy-reports
+                    mkdir -p trivy-reports
 
-            curl -sL \
-              https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-              -o html.tpl
+                    curl -sL \
+                      https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+                      -o html.tpl
 
-            trivy image \
-              --severity HIGH,CRITICAL \
-              --exit-code 1 \
-              --format template \
-              --template "@html.tpl" \
-              -o trivy-reports/trivy-report.html \
-              ${ECR_REPO}:${IMAGE_TAG}
-        '''
+                    trivy image \
+                      --format template \
+                      --template "@html.tpl" \
+                      -o trivy-reports/trivy-report.html \
+                      ${ECR_REPO}:${IMAGE_TAG}
+                '''
 
-                publishHTML([
-            allowMissing: false,
-            alwaysLinkToLastBuild: true,
-            keepAll: true,
-            reportDir: 'trivy-reports',
-            reportFiles: 'trivy-report.html',
-            reportName: 'Trivy Security Report'
-        ])
+                sh '''
+                    trivy image \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 1 \
+                      --no-progress \
+                      ${ECR_REPO}:${IMAGE_TAG}
+                '''
             }
         }
 
@@ -130,17 +127,28 @@ pipeline {
     }
 
     post {
+        always {
+            publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'trivy-reports',
+                reportFiles: 'trivy-report.html',
+                reportName: 'Trivy Security Report'
+            ])
+        }
+
         success {
             echo 'Frontend CI completed successfully'
             echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
             echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
 
             build job: 'frontend-cd',
-        parameters: [
-            string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
-            string(name: 'ENVIRONMENT', value: 'dev')
-        ],
-        wait: false
+                parameters: [
+                    string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
+                    string(name: 'ENVIRONMENT', value: 'dev')
+                ],
+                wait: false
         }
 
         failure {
