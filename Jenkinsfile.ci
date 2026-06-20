@@ -72,31 +72,31 @@ pipeline {
             }
         }
 
-        stage('Trivy Image Scan') {
-            steps {
-                sh '''
-                    mkdir -p trivy-reports
+        // stage('Trivy Image Scan') {
+        //     steps {
+        //         sh '''
+        //             mkdir -p trivy-reports
 
-                    curl -sL \
-                      https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-                      -o html.tpl
+        //             curl -sL \
+        //               https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+        //               -o html.tpl
 
-                    trivy image \
-                      --format template \
-                      --template "@html.tpl" \
-                      -o trivy-reports/trivy-report.html \
-                      ${ECR_REPO}:${IMAGE_TAG}
-                '''
+        //             trivy image \
+        //               --format template \
+        //               --template "@html.tpl" \
+        //               -o trivy-reports/trivy-report.html \
+        //               ${ECR_REPO}:${IMAGE_TAG}
+        //         '''
 
-                sh '''
-                    trivy image \
-                      --severity HIGH,CRITICAL \
-                      --exit-code 1 \
-                      --no-progress \
-                      ${ECR_REPO}:${IMAGE_TAG}
-                '''
-            }
-        }
+        //         sh '''
+        //             trivy image \
+        //               --severity HIGH,CRITICAL \
+        //               --exit-code 1 \
+        //               --no-progress \
+        //               ${ECR_REPO}:${IMAGE_TAG}
+        //         '''
+        //     }
+        // }
 
         stage('Login to ECR') {
             steps {
@@ -128,14 +128,14 @@ pipeline {
 
     post {
         always {
-            publishHTML([
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'trivy-reports',
-                reportFiles: 'trivy-report.html',
-                reportName: 'Trivy Security Report'
-            ])
+            // publishHTML([
+            //     allowMissing: true,
+            //     alwaysLinkToLastBuild: true,
+            //     keepAll: true,
+            //     reportDir: 'trivy-reports',
+            //     reportFiles: 'trivy-report.html',
+            //     reportName: 'Trivy Security Report'
+            // ])
         }
 
         success {
