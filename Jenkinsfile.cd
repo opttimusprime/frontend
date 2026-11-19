@@ -46,25 +46,27 @@ pipeline {
         stage('Get Image Digest') {
             steps {
                 script {
-                    env.IMAGE_DIGEST = sh(
+                    def digest = sh(
                 script: """
-                    aws ecr describe-images \\
-                      --repository-name ${env.ECR_REPO} \\
-                      --image-ids imageTag=${params.IMAGE_TAG} \\
-                      --region ${env.AWS_REGION} \\
-                      --query 'imageDetails[0].imageDigest' \\
+                    aws ecr describe-images \
+                      --repository-name ${env.ECR_REPO} \
+                      --image-ids imageTag=${params.IMAGE_TAG} \
+                      --region ${env.AWS_REGION} \
+                      --query 'imageDetails[0].imageDigest' \
                       --output text
                 """,
                 returnStdout: true
             ).trim()
 
                     echo "Image Tag: [${params.IMAGE_TAG}]"
-                    echo "Image Digest: [${env.IMAGE_DIGEST}]"
-                    echo "Digest Length: ${env.IMAGE_DIGEST.length()}"
+                    echo "Image Digest: [${digest}]"
+                    echo "Digest Length: ${digest.length()}"
 
-                    if (!(env.IMAGE_DIGEST ==~ /^sha256:[a-fA-F0-9]{64}$/)) {
-                        error("Invalid or missing image digest for tag: ${params.IMAGE_TAG}")
+                    if (!(digest ==~ /^sha256:[a-fA-F0-9]{64}$/)) {
+                        error("ERROR: Invalid or missing image digest for tag: ${params.IMAGE_TAG}")
                     }
+
+                    env.IMAGE_DIGEST = digest
 
                     echo 'SUCCESS: ECR image digest verified.'
                 }
