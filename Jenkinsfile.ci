@@ -1,8 +1,6 @@
+
 pipeline {
     agent any
-    // agent {
-    //     label 'docker'
-    // }
 
     environment {
         AWS_REGION   = 'us-east-1'
@@ -21,8 +19,6 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'develop',
-                    // credentialsId: 'jenkins-github-ssh',
-                    // url: 'git@github.com:opttimusprime/frontend.git'
                     url: 'https://github.com/opttimusprime/frontend.git'
             }
         }
@@ -40,7 +36,6 @@ pipeline {
         //     steps {
         //         script {
         //             def scannerHome = tool 'SonarScanner'
-
         //             withSonarQubeEnv('SonarQube') {
         //                 sh """
         //                     ${scannerHome}/bin/sonar-scanner \
@@ -51,7 +46,6 @@ pipeline {
         //                 """
         //             }
         //         }
-
         //         echo 'SonarQube Scan completed successfully'
         //     }
         // }
@@ -61,7 +55,6 @@ pipeline {
         //         timeout(time: 5, unit: 'MINUTES') {
         //             waitForQualityGate abortPipeline: true
         //         }
-
         //         echo 'Quality Gate passed successfully'
         //     }
         // }
@@ -78,19 +71,16 @@ pipeline {
         //     steps {
         //         sh '''
         //             mkdir -p trivy-reports
-
         //             curl -sL \
         //               https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
         //               -o html.tpl
-
+        //
         //             trivy image \
         //               --format template \
         //               --template "@html.tpl" \
         //               -o trivy-reports/trivy-report.html \
         //               ${ECR_REPO}:${IMAGE_TAG}
-        //         '''
-
-        //         sh '''
+        //
         //             trivy image \
         //               --severity HIGH,CRITICAL \
         //               --exit-code 1 \
@@ -103,12 +93,12 @@ pipeline {
         stage('Login to ECR') {
             steps {
                 sh """#!/bin/bash
-        set -e
-        set -o pipefail
+                    set -e
+                    set -o pipefail
 
-        aws ecr get-login-password --region ${AWS_REGION} | \
-        docker login --username AWS --password-stdin ${ECR_REGISTRY}
-        """
+                    aws ecr get-login-password --region ${AWS_REGION} | \
+                    docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                """
             }
         }
 
@@ -134,14 +124,15 @@ pipeline {
     post {
         always {
             echo 'Frontend CI Pipeline execution completed.'
-        // publishHTML([
-        //     allowMissing: true,
-        //     alwaysLinkToLastBuild: true,
-        //     keepAll: true,
-        //     reportDir: 'trivy-reports',
-        //     reportFiles: 'trivy-report.html',
-        //     reportName: 'Trivy Security Report'
-        // ])
+
+            // publishHTML([
+            //     allowMissing: true,
+            //     alwaysLinkToLastBuild: true,
+            //     keepAll: true,
+            //     reportDir: 'trivy-reports',
+            //     reportFiles: 'trivy-report.html',
+            //     reportName: 'Trivy Security Report'
+            // ])
         }
 
         success {
@@ -149,12 +140,14 @@ pipeline {
             echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
             echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
 
-        // build job: 'frontend-cd',
-        //     parameters: [
-        //         string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
-        //         string(name: 'ENVIRONMENT', value: 'dev')
-        //     ],
-        //     wait: false
+            build job: 'rs-frontend-cd',
+                parameters: [
+                    string(
+                        name: 'IMAGE_TAG',
+                        value: "${env.IMAGE_TAG}"
+                    )
+                ],
+                wait: false
         }
 
         failure {
