@@ -120,18 +120,28 @@ pipeline {
 
         stage('Deploy to Minikube') {
             steps {
-                sshagent(['jenkins-minikube-ssh']) {
-                    sh '''
-                        ssh -o BatchMode=yes \
-                            -o StrictHostKeyChecking=yes \
-                            ${MINIKUBE_USER}@${MINIKUBE_HOST} \
-                            "helm upgrade --install ${HELM_RELEASE} /home/ec2-user/frontend-helm \
-                              --namespace ${K8S_NAMESPACE} \
-                              --set-string image.repository=${ECR_REGISTRY}/${ECR_REPO} \
-                              --set-string image.digest=${IMAGE_DIGEST} \
-                              --wait \
-                              --timeout 5m"
-                    '''
+                script {
+                    def digest = env.IMAGE_DIGEST?.trim()
+
+                    if (!(digest ==~ /^sha256:[a-fA-F0-9]{64}$/)) {
+                        error('ERROR: IMAGE_DIGEST is missing or invalid before Helm deployment')
+                    }
+
+                    echo "Deploying image digest: ${digest}"
+
+                    sshagent(['jenkins-minikube-ssh']) {
+                        sh """
+                    ssh -o BatchMode=yes \\
+                        -o StrictHostKeyChecking=yes \\
+                        ${env.MINIKUBE_USER}@${env.MINIKUBE_HOST} \\
+                        'helm upgrade --install ${env.HELM_RELEASE} /home/ec2-user/frontend-helm \\
+                          --namespace ${env.K8S_NAMESPACE} \\
+                          --set-string image.repository=${env.ECR_REGISTRY}/${env.ECR_REPO} \\
+                          --set-string image.digest=${digest} \\
+                          --wait \\
+                          --timeout 5m'
+                """
+                    }
                 }
             }
         }
