@@ -26,7 +26,6 @@ pipeline {
     }
 
     stages {
-
         stage('Validate Inputs') {
             steps {
                 script {
@@ -64,6 +63,26 @@ pipeline {
                     }
 
                     echo "Image Digest: ${env.IMAGE_DIGEST}"
+                }
+            }
+        }
+
+        stage('Refresh ECR Secret') {
+            steps {
+                sshagent(['jenkins-minikube-ssh']) {
+                    sh '''
+                ssh -o BatchMode=yes \
+                    -o StrictHostKeyChecking=yes \
+                    ${MINIKUBE_USER}@${MINIKUBE_HOST} \
+                    'aws ecr get-login-password --region us-east-1 |
+                     kubectl create secret docker-registry ecr-registry-secret \
+                       --namespace ns-nginx \
+                       --docker-server=717090908085.dkr.ecr.us-east-1.amazonaws.com \
+                       --docker-username=AWS \
+                       --docker-password="$(cat)" \
+                       --dry-run=client -o yaml |
+                     kubectl apply -f -'
+            '''
                 }
             }
         }
@@ -132,7 +151,7 @@ pipeline {
 
     post {
         success {
-            echo "Frontend deployment completed successfully."
+            echo 'Frontend deployment completed successfully.'
             echo "Image Digest: ${env.IMAGE_DIGEST}"
         }
 
@@ -141,8 +160,6 @@ pipeline {
         }
     }
 }
-
-
 
 // pipeline {
 //     agent any
