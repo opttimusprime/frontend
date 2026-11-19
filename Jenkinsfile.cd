@@ -47,22 +47,26 @@ pipeline {
             steps {
                 script {
                     env.IMAGE_DIGEST = sh(
-                        script: """
-                            aws ecr describe-images \
-                              --repository-name ${ECR_REPO} \
-                              --image-ids imageTag=${params.IMAGE_TAG} \
-                              --region ${AWS_REGION} \
-                              --query 'imageDetails[0].imageDigest' \
-                              --output text
-                        """,
-                        returnStdout: true
-                    ).trim()
+                script: """
+                    aws ecr describe-images \\
+                      --repository-name ${env.ECR_REPO} \\
+                      --image-ids imageTag=${params.IMAGE_TAG} \\
+                      --region ${env.AWS_REGION} \\
+                      --query 'imageDetails[0].imageDigest' \\
+                      --output text
+                """,
+                returnStdout: true
+            ).trim()
+
+                    echo "Image Tag: [${params.IMAGE_TAG}]"
+                    echo "Image Digest: [${env.IMAGE_DIGEST}]"
+                    echo "Digest Length: ${env.IMAGE_DIGEST.length()}"
 
                     if (!(env.IMAGE_DIGEST ==~ /^sha256:[a-fA-F0-9]{64}$/)) {
                         error("Invalid or missing image digest for tag: ${params.IMAGE_TAG}")
                     }
 
-                    echo "Image Digest: ${env.IMAGE_DIGEST}"
+                    echo 'SUCCESS: ECR image digest verified.'
                 }
             }
         }
