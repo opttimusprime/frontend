@@ -130,14 +130,14 @@ pipeline {
 
     post {
         success {
-            echo "Frontend rollback completed successfully"
+            echo 'Frontend rollback completed successfully'
             echo "Environment : ${params.ENVIRONMENT}"
             echo "Image Tag   : ${params.IMAGE_TAG}"
             echo "Digest      : ${env.IMAGE_DIGEST}"
         }
 
         failure {
-            echo "Frontend rollback failed"
+            echo 'Frontend rollback failed'
         }
     }
 }

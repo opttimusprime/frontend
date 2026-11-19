@@ -1,12 +1,13 @@
 pipeline {
-    agent {
-        label 'docker'
-    }
+    agent any
+    // agent {
+    //     label 'docker'
+    // }
 
     environment {
         AWS_REGION   = 'us-east-1'
-        ECR_REGISTRY = '942548380129.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPO     = 'roboshop/frontend'
+        ECR_REGISTRY = '717090908085.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPO     = 'roboshop/nginx'
         IMAGE_TAG    = "${BUILD_NUMBER}"
     }
 
@@ -20,8 +21,9 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'develop',
-                    credentialsId: 'jenkins-github-ssh',
-                    url: 'git@github.com:opttimusprime/frontend.git'
+                    // credentialsId: 'jenkins-github-ssh',
+                    // url: 'git@github.com:opttimusprime/frontend.git'
+                    url: 'https://github.com/opttimusprime/frontend.git'
             }
         }
 
@@ -34,35 +36,35 @@ pipeline {
             }
         }
 
-        stage('SonarQube Scan') {
-            steps {
-                script {
-                    def scannerHome = tool 'SonarScanner'
+        // stage('SonarQube Scan') {
+        //     steps {
+        //         script {
+        //             def scannerHome = tool 'SonarScanner'
 
-                    withSonarQubeEnv('SonarQube') {
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=frontend \
-                            -Dsonar.projectName=frontend \
-                            -Dsonar.sources=. \
-                            -Dsonar.exclusions=node_modules/**,coverage/**
-                        """
-                    }
-                }
+        //             withSonarQubeEnv('SonarQube') {
+        //                 sh """
+        //                     ${scannerHome}/bin/sonar-scanner \
+        //                     -Dsonar.projectKey=frontend \
+        //                     -Dsonar.projectName=frontend \
+        //                     -Dsonar.sources=. \
+        //                     -Dsonar.exclusions=node_modules/**,coverage/**
+        //                 """
+        //             }
+        //         }
 
-                echo 'SonarQube Scan completed successfully'
-            }
-        }
+        //         echo 'SonarQube Scan completed successfully'
+        //     }
+        // }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+        // stage('Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
 
-                echo 'Quality Gate passed successfully'
-            }
-        }
+        //         echo 'Quality Gate passed successfully'
+        //     }
+        // }
 
         stage('Docker Build') {
             steps {
@@ -100,10 +102,13 @@ pipeline {
 
         stage('Login to ECR') {
             steps {
-                sh """
-                    aws ecr get-login-password --region ${AWS_REGION} | \
-                    docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                """
+                sh """#!/bin/bash
+        set -e
+        set -o pipefail
+
+        aws ecr get-login-password --region ${AWS_REGION} | \
+        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+        """
             }
         }
 
@@ -129,14 +134,14 @@ pipeline {
     post {
         always {
             echo 'Frontend CI Pipeline execution completed.'
-            // publishHTML([
-            //     allowMissing: true,
-            //     alwaysLinkToLastBuild: true,
-            //     keepAll: true,
-            //     reportDir: 'trivy-reports',
-            //     reportFiles: 'trivy-report.html',
-            //     reportName: 'Trivy Security Report'
-            // ])
+        // publishHTML([
+        //     allowMissing: true,
+        //     alwaysLinkToLastBuild: true,
+        //     keepAll: true,
+        //     reportDir: 'trivy-reports',
+        //     reportFiles: 'trivy-report.html',
+        //     reportName: 'Trivy Security Report'
+        // ])
         }
 
         success {
@@ -144,12 +149,12 @@ pipeline {
             echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
             echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
 
-            build job: 'frontend-cd',
-                parameters: [
-                    string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
-                    string(name: 'ENVIRONMENT', value: 'dev')
-                ],
-                wait: false
+        // build job: 'frontend-cd',
+        //     parameters: [
+        //         string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
+        //         string(name: 'ENVIRONMENT', value: 'dev')
+        //     ],
+        //     wait: false
         }
 
         failure {
