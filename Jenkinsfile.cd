@@ -22,7 +22,7 @@ pipeline {
         MINIKUBE_HOST = '10.10.1.224'
         MINIKUBE_USER = 'ec2-user'
 
-        IMAGE_DIGEST = ''
+        // IMAGE_DIGEST = ''
     }
 
     stages {
@@ -67,6 +67,7 @@ pipeline {
                     }
 
                     env.IMAGE_DIGEST = digest
+                    echo "Stored IMAGE_DIGEST: [${env.IMAGE_DIGEST}]"
 
                     echo 'SUCCESS: ECR image digest verified.'
                 }
