@@ -1,144 +1,185 @@
+
 pipeline {
-    agent {
-        label 'docker'
-    }
+    agent any
 
     parameters {
         string(
             name: 'IMAGE_TAG',
             defaultValue: '',
-            description: 'Previous working image tag to rollback to'
-        )
-
-        choice(
-            name: 'ENVIRONMENT',
-            choices: ['dev', 'qa', 'preprod', 'prod'],
-            description: 'Target environment'
+            description: 'Previous working ECR image tag to rollback to'
         )
     }
 
     environment {
         AWS_REGION   = 'us-east-1'
-        ECR_REGISTRY = '942548380129.dkr.ecr.us-east-1.amazonaws.com'
+        EKS_CLUSTER  = 'roboshop-dev-eks'
+
+        ECR_REGISTRY = '717090908085.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPO     = 'roboshop/frontend'
 
         K8S_NAMESPACE = 'frontend'
         HELM_RELEASE  = 'frontend'
         HELM_CHART    = './helm'
+
+        IMAGE_DIGEST = ''
     }
 
     stages {
         stage('Validate Inputs') {
             steps {
-                sh '''
-                    if [ -z "${IMAGE_TAG}" ]; then
-                      echo "ERROR: IMAGE_TAG is required"
-                      exit 1
-                    fi
-                '''
+                script {
+                    if (!(params.IMAGE_TAG ==~ /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/)) {
+                        error('ERROR: Valid IMAGE_TAG is required')
+                    }
+
+                    env.IMAGE_TAG = params.IMAGE_TAG
+
+                    echo "Rollback Image Tag: ${env.IMAGE_TAG}"
+                }
             }
         }
 
         stage('Checkout Code') {
             steps {
                 git branch: 'develop',
-                    credentialsId: 'jenkins-github-ssh',
-                    url: 'git@github.com:opttimusprime/frontend.git'
+                    url: 'https://github.com/opttimusprime/frontend.git'
             }
         }
 
         stage('Get Image Digest') {
             steps {
                 script {
-                    env.IMAGE_DIGEST = sh(
-                        script: """
+                    def digest = sh(
+                        script: '''
+                            set -e
+
                             aws ecr describe-images \
-                              --repository-name ${ECR_REPO} \
-                              --image-ids imageTag=${params.IMAGE_TAG} \
-                              --region ${AWS_REGION} \
+                              --repository-name "$ECR_REPO" \
+                              --image-ids "imageTag=$IMAGE_TAG" \
+                              --region "$AWS_REGION" \
                               --query 'imageDetails[0].imageDigest' \
                               --output text
-                        """,
+                        ''',
                         returnStdout: true
                     ).trim()
 
-                    echo "Rollback Image Tag    : ${params.IMAGE_TAG}"
-                    echo "Rollback Image Digest : ${env.IMAGE_DIGEST}"
-
-                    if (env.IMAGE_DIGEST == '' || env.IMAGE_DIGEST == 'None') {
-                        error "ERROR: Image digest not found for tag ${params.IMAGE_TAG}"
+                    if (!(digest ==~ /^sha256:[a-fA-F0-9]{64}$/)) {
+                        error("ERROR: Invalid or missing digest for tag: ${params.IMAGE_TAG}")
                     }
+
+                    env.IMAGE_DIGEST = digest
+
+                    echo "Rollback Image Tag: ${env.IMAGE_TAG}"
+                    echo "Rollback Image Digest: ${env.IMAGE_DIGEST}"
+                    echo 'SUCCESS: Rollback image digest verified.'
                 }
             }
         }
 
-        stage('Update Kubeconfig') {
+        stage('Configure EKS Access') {
             steps {
-                sh """
+                sh '''
+                    set -e
+
                     aws eks update-kubeconfig \
-                      --region ${AWS_REGION} \
-                      --name roboshop-${params.ENVIRONMENT}-eks
-                """
+                      --region "$AWS_REGION" \
+                      --name "$EKS_CLUSTER"
+
+                    kubectl config current-context
+
+                    kubectl get nodes
+                '''
             }
         }
 
         stage('Rollback Frontend') {
             steps {
-                sh """
-                    helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
-                      --namespace ${K8S_NAMESPACE} \
-                      --create-namespace \
-                      -f helm/values.yaml \
-                      -f helm/values-${params.ENVIRONMENT}.yaml \
-                      --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \
-                      --set image.digest=${env.IMAGE_DIGEST}
-                """
+                sh '''
+                    set -e
+
+                    helm status "$HELM_RELEASE" \
+                      --namespace "$K8S_NAMESPACE"
+
+                    helm upgrade "$HELM_RELEASE" "$HELM_CHART" \
+                      --namespace "$K8S_NAMESPACE" \
+                      --set-string "image.digest=$IMAGE_DIGEST" \
+                      --atomic \
+                      --wait \
+                      --timeout 5m
+                '''
             }
         }
 
         stage('Verify Rollback') {
             steps {
-                sh """
-                    kubectl rollout status deployment/frontend -n ${K8S_NAMESPACE}
+                sh '''
+                    set -e
+
+                    kubectl rollout status \
+                      deployment/"$HELM_RELEASE" \
+                      -n "$K8S_NAMESPACE" \
+                      --timeout=180s
+
+                    echo "-----------------------------"
+                    echo "Helm Release"
+                    echo "-----------------------------"
+
+                    helm list -n "$K8S_NAMESPACE"
+
+                    echo "-----------------------------"
+                    echo "Helm History"
+                    echo "-----------------------------"
+
+                    helm history "$HELM_RELEASE" \
+                      -n "$K8S_NAMESPACE"
 
                     echo "-----------------------------"
                     echo "Running Pods"
                     echo "-----------------------------"
-                    kubectl get pods -n ${K8S_NAMESPACE}
+
+                    kubectl get pods \
+                      -n "$K8S_NAMESPACE" -o wide
 
                     echo "-----------------------------"
-                    echo "Service"
+                    echo "Service and Ingress"
                     echo "-----------------------------"
-                    kubectl get svc -n ${K8S_NAMESPACE}
+
+                    kubectl get svc,ingress \
+                      -n "$K8S_NAMESPACE"
 
                     echo "-----------------------------"
-                    echo "Ingress"
+                    echo "Verify Running Image"
                     echo "-----------------------------"
-                    kubectl get ingress -n ${K8S_NAMESPACE}
 
-                    echo "-----------------------------"
-                    echo "Running Image"
-                    echo "-----------------------------"
-                    kubectl get deployment frontend \
-                      -n ${K8S_NAMESPACE} \
-                      -o jsonpath='{.spec.template.spec.containers[0].image}'
+                    RUNNING_IMAGE=$(kubectl get deployment "$HELM_RELEASE" \
+                      -n "$K8S_NAMESPACE" \
+                      -o jsonpath='{.spec.template.spec.containers[0].image}')
 
-                    echo ""
-                """
+                    EXPECTED_IMAGE="${ECR_REGISTRY}/${ECR_REPO}@${IMAGE_DIGEST}"
+
+                    echo "Expected Image: $EXPECTED_IMAGE"
+                    echo "Running Image : $RUNNING_IMAGE"
+
+                    if [ "$RUNNING_IMAGE" != "$EXPECTED_IMAGE" ]; then
+                        echo "ERROR: Rollback image mismatch"
+                        exit 1
+                    fi
+
+                    echo "SUCCESS: Rollback image verified."
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "Frontend rollback completed successfully"
-            echo "Environment : ${params.ENVIRONMENT}"
-            echo "Image Tag   : ${params.IMAGE_TAG}"
-            echo "Digest      : ${env.IMAGE_DIGEST}"
+            echo 'Frontend rollback completed successfully.'
+            echo "Rollback Image Tag: ${params.IMAGE_TAG}"
+            echo "Rollback Digest: ${env.IMAGE_DIGEST}"
         }
 
         failure {
-            echo "Frontend rollback failed"
+            echo 'Frontend rollback failed.'
         }
     }
 }

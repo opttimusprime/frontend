@@ -1,12 +1,13 @@
+
 namespace: frontend
 
 replicaCount: 2
 
 image:
-  repository: 942548380129.dkr.ecr.us-east-1.amazonaws.com/roboshop/frontend
+  repository: 717090908085.dkr.ecr.us-east-1.amazonaws.com/roboshop/frontend
   tag: "latest"
   digest: ""
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 ingress:
   enabled: true

@@ -1,11 +1,10 @@
+
 pipeline {
-    agent {
-        label 'docker'
-    }
+    agent any
 
     environment {
         AWS_REGION   = 'us-east-1'
-        ECR_REGISTRY = '942548380129.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REGISTRY = '717090908085.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPO     = 'roboshop/frontend'
         IMAGE_TAG    = "${BUILD_NUMBER}"
     }
@@ -20,8 +19,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'develop',
-                    credentialsId: 'jenkins-github-ssh',
-                    url: 'git@github.com:opttimusprime/frontend.git'
+                    url: 'https://github.com/opttimusprime/frontend.git'
             }
         }
 
@@ -34,60 +32,26 @@ pipeline {
             }
         }
 
-        stage('SonarQube Scan') {
-            // steps {
-            //     withSonarQubeEnv('sonarqube') {
-            //         sh """
-            //             sonar-scanner \
-            //             -Dsonar.projectKey=frontend \
-            //             -Dsonar.projectName=frontend \
-            //             -Dsonar.sources=app
-            //         """
-            //     }
-            // }
-
-            steps {
-                sh '''
-                    echo "SonarQube Scan has been completed successfully"
-                '''
-            }
-        }
-
-        stage('Quality Gate') {
-            // steps {
-            //     timeout(time: 5, unit: 'MINUTES') {
-            //         waitForQualityGate abortPipeline: true
-            //     }
-            // }
-
-            steps {
-                sh '''
-                    echo "Quality Gate has been passed successfully"
-                '''
-            }
-        }
-
-        stage('Security Scan') {
-            steps {
-                sh '''
-                    echo "Security Scan has been completed successfully"
-                '''
-            }
-        }
-
         stage('Docker Build') {
             steps {
                 sh """
-                    docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                    docker build --no-cache --pull \
+                      -t ${ECR_REPO}:${IMAGE_TAG} .
                 """
             }
         }
 
         stage('Login to ECR') {
             steps {
-                sh """
-                    aws ecr get-login-password --region ${AWS_REGION} | \
-                    docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                sh """#!/bin/bash
+                    set -e
+                    set -o pipefail
+
+                    aws ecr get-login-password \
+                      --region ${AWS_REGION} | \
+                    docker login \
+                      --username AWS \
+                      --password-stdin ${ECR_REGISTRY}
                 """
             }
         }
@@ -95,8 +59,13 @@ pipeline {
         stage('Tag Docker Image') {
             steps {
                 sh """
-                    docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                    docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO}:latest
+                    docker tag \
+                      ${ECR_REPO}:${IMAGE_TAG} \
+                      ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
+
+                    docker tag \
+                      ${ECR_REPO}:${IMAGE_TAG} \
+                      ${ECR_REGISTRY}/${ECR_REPO}:latest
                 """
             }
         }
@@ -104,25 +73,33 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 sh """
-                    docker push ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${ECR_REPO}:latest
+                    docker push \
+                      ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
+
+                    docker push \
+                      ${ECR_REGISTRY}/${ECR_REPO}:latest
                 """
             }
         }
     }
 
     post {
+        always {
+            echo 'Frontend CI Pipeline execution completed.'
+        }
+
         success {
             echo 'Frontend CI completed successfully'
             echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
-            echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
 
-            build job: 'frontend-cd',
-        parameters: [
-            string(name: 'IMAGE_TAG', value: "${env.IMAGE_TAG}"),
-            string(name: 'ENVIRONMENT', value: 'dev')
-        ],
-        wait: false
+            build job: 'rs-frontend-cd',
+                parameters: [
+                    string(
+                        name: 'IMAGE_TAG',
+                        value: "${env.IMAGE_TAG}"
+                    )
+                ],
+                wait: false
         }
 
         failure {
