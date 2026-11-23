@@ -5,7 +5,7 @@ pipeline {
     environment {
         AWS_REGION   = 'us-east-1'
         ECR_REGISTRY = '717090908085.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPO     = 'roboshop/nginx'
+        ECR_REPO     = 'roboshop/frontend'
         IMAGE_TAG    = "${BUILD_NUMBER}"
     }
 
@@ -32,63 +32,14 @@ pipeline {
             }
         }
 
-        // stage('SonarQube Scan') {
-        //     steps {
-        //         script {
-        //             def scannerHome = tool 'SonarScanner'
-        //             withSonarQubeEnv('SonarQube') {
-        //                 sh """
-        //                     ${scannerHome}/bin/sonar-scanner \
-        //                     -Dsonar.projectKey=frontend \
-        //                     -Dsonar.projectName=frontend \
-        //                     -Dsonar.sources=. \
-        //                     -Dsonar.exclusions=node_modules/**,coverage/**
-        //                 """
-        //             }
-        //         }
-        //         echo 'SonarQube Scan completed successfully'
-        //     }
-        // }
-
-        // stage('Quality Gate') {
-        //     steps {
-        //         timeout(time: 5, unit: 'MINUTES') {
-        //             waitForQualityGate abortPipeline: true
-        //         }
-        //         echo 'Quality Gate passed successfully'
-        //     }
-        // }
-
         stage('Docker Build') {
             steps {
                 sh """
-                    docker build --no-cache --pull -t ${ECR_REPO}:${IMAGE_TAG} .
+                    docker build --no-cache --pull \
+                      -t ${ECR_REPO}:${IMAGE_TAG} .
                 """
             }
         }
-
-        // stage('Trivy Image Scan') {
-        //     steps {
-        //         sh '''
-        //             mkdir -p trivy-reports
-        //             curl -sL \
-        //               https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-        //               -o html.tpl
-        //
-        //             trivy image \
-        //               --format template \
-        //               --template "@html.tpl" \
-        //               -o trivy-reports/trivy-report.html \
-        //               ${ECR_REPO}:${IMAGE_TAG}
-        //
-        //             trivy image \
-        //               --severity HIGH,CRITICAL \
-        //               --exit-code 1 \
-        //               --no-progress \
-        //               ${ECR_REPO}:${IMAGE_TAG}
-        //         '''
-        //     }
-        // }
 
         stage('Login to ECR') {
             steps {
@@ -96,8 +47,11 @@ pipeline {
                     set -e
                     set -o pipefail
 
-                    aws ecr get-login-password --region ${AWS_REGION} | \
-                    docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    aws ecr get-login-password \
+                      --region ${AWS_REGION} | \
+                    docker login \
+                      --username AWS \
+                      --password-stdin ${ECR_REGISTRY}
                 """
             }
         }
@@ -105,8 +59,13 @@ pipeline {
         stage('Tag Docker Image') {
             steps {
                 sh """
-                    docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                    docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO}:latest
+                    docker tag \
+                      ${ECR_REPO}:${IMAGE_TAG} \
+                      ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
+
+                    docker tag \
+                      ${ECR_REPO}:${IMAGE_TAG} \
+                      ${ECR_REGISTRY}/${ECR_REPO}:latest
                 """
             }
         }
@@ -114,8 +73,11 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 sh """
-                    docker push ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${ECR_REPO}:latest
+                    docker push \
+                      ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
+
+                    docker push \
+                      ${ECR_REGISTRY}/${ECR_REPO}:latest
                 """
             }
         }
@@ -124,21 +86,11 @@ pipeline {
     post {
         always {
             echo 'Frontend CI Pipeline execution completed.'
-
-            // publishHTML([
-            //     allowMissing: true,
-            //     alwaysLinkToLastBuild: true,
-            //     keepAll: true,
-            //     reportDir: 'trivy-reports',
-            //     reportFiles: 'trivy-report.html',
-            //     reportName: 'Trivy Security Report'
-            // ])
         }
 
         success {
             echo 'Frontend CI completed successfully'
             echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
-            echo "Latest pushed: ${ECR_REGISTRY}/${ECR_REPO}:latest"
 
             build job: 'rs-frontend-cd',
                 parameters: [

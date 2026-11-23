@@ -1,16 +1,16 @@
+
 apiVersion: apps/v1
 kind: Deployment
 
 metadata:
   name: frontend
-  namespace: ns-nginx
+  namespace: frontend
   labels:
     app: frontend
     project: roboshop
 
 spec:
   replicas: 2
-
   revisionHistoryLimit: 5
 
   selector:
@@ -25,15 +25,10 @@ spec:
         project: roboshop
 
     spec:
-      imagePullSecrets:
-        - name: ecr-registry-secret
-
       containers:
         - name: frontend
-
-          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
-
-          imagePullPolicy: Always
+          image: "717090908085.dkr.ecr.us-east-1.amazonaws.com/roboshop/frontend@{{ required "image.digest must be provided" .Values.image.digest }}"
+          imagePullPolicy: IfNotPresent
 
           ports:
             - name: http
@@ -50,14 +45,14 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 80
             initialDelaySeconds: 15
             periodSeconds: 20
