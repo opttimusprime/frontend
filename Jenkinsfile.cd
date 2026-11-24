@@ -92,7 +92,6 @@ pipeline {
                       --namespace "$K8S_NAMESPACE" \
                       --create-namespace \
                       --set-string "image.digest=$IMAGE_DIGEST" \
-                      --atomic \
                       --wait \
                       --timeout 5m
                 '''
