@@ -17,3 +17,4 @@ It should automatically trigger webhook
     rs-frontend-ci job
         rs-frontend-cd job
             deploy frontend in EKS cluster
+            
