@@ -20,8 +20,6 @@ pipeline {
         K8S_NAMESPACE = 'frontend'
         HELM_RELEASE  = 'frontend'
         HELM_CHART    = './helm'
-
-        IMAGE_DIGEST = ''
     }
 
     stages {
@@ -94,7 +92,6 @@ pipeline {
                       --namespace "$K8S_NAMESPACE" \
                       --create-namespace \
                       --set-string "image.digest=$IMAGE_DIGEST" \
-                      --atomic \
                       --wait \
                       --timeout 5m
                 '''
